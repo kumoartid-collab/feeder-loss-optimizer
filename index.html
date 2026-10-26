@@ -1,0 +1,906 @@
+# Feeder Loss Optimizer 22 kV
+
+เว็บแอปสำหรับคำนวณการโอนโหลดระหว่างวงจร 22 kV เพื่อให้หน่วยสูญเสีย (Technical Loss) รวมต่ำที่สุด พร้อม Dashboard และรายงาน PDF
+
+- เป็นไฟล์เดียว: `index.html`
+- ไม่ต้องมีเซิร์ฟเวอร์หรือฐานข้อมูล ทุกอย่างทำงานในเบราว์เซอร์ของผู้ใช้
+- ผู้ใช้ไม่ต้องสมัครสมาชิก
+- ข้อมูลที่ผู้ใช้กรอกไม่ถูกส่งออกจากเครื่อง
+
+## ความสามารถ
+
+- อัปโหลดไฟล์ Excel (.xlsx/.xls) หรือ CSV ผล DIgSILENT โปรแกรมอ่านหัวตารางให้อัตโนมัติ เช่น `ตัวย่อสถานีไฟฟ้า`, `สถานีไฟฟ้า`, `วงจร`, `Peak Load[MW]`, `Peak Loss`, `Loss Factor`
+- วางข้อมูลที่คัดลอกจาก Excel ได้โดยตรง หรือแก้ไข เพิ่ม และลบวงจรในตาราง (ลบแล้วกดเลิกทำได้)
+- ตั้งเงื่อนไขได้: พิกัดโหลดต่อวงจร ขีดจำกัดการโอนโหลด โหลดต่ำสุด และโอนได้เฉพาะภายในสถานีหรือข้ามสถานี
+- แสดงผลลัพธ์ทันที: Load ใหม่, ΔLoad, Loss ใหม่, Loss ที่ลดลง, สรุปรายสถานี, พลังงานและเงินที่ประหยัดได้ต่อปี
+- ดาวน์โหลดได้:
+  - รายงาน PDF (หน้า Dashboard และตารางรายละเอียด)
+  - ผลลัพธ์เป็นไฟล์ CSV
+  - ไฟล์แม่แบบสำหรับกรอกข้อมูล
+- บันทึกข้อมูลอัตโนมัติในเบราว์เซอร์ เปิดครั้งถัดไปจะเห็นข้อมูลเดิม
+
+## หลักการคำนวณ
+
+- Loss ของแต่ละวงจร = k × P² โดย k = Peak Loss / Peak Load²
+- เป้าหมายคือหาค่า min Σ kᵢPᵢ² โดยโหลดรวมของแต่ละกลุ่มต้องเท่าเดิม ภายใต้พิกัดและขีดจำกัดการโอนโหลด
+- จุดที่เหมาะสมที่สุดคือเมื่อ 2kᵢPᵢ = λ เท่ากันทุกวงจรในกลุ่ม แก้ด้วยวิธี bisection
+- พลังงานสูญเสียต่อปี = Peak Loss × 8,760 × Loss Factor
+
+## การนำขึ้นเว็บให้ทุกคนเข้าใช้ได้ฟรี
+
+### วิธีที่ 1: GitHub Pages (แนะนำ ฟรีและลิงก์ถาวร)
+
+1. สมัครหรือเข้าสู่ระบบที่ https://github.com
+2. กดปุ่ม **New repository** ตั้งชื่อ เช่น `feeder-loss-optimizer` เลือก **Public** แล้วกด **Create repository**
+3. ในหน้า repository กด **uploading an existing file** แล้วลากไฟล์ `index.html` (และ `README.md` ถ้าต้องการ) เข้าไป จากนั้นกด **Commit changes**
+4. ไปที่ **Settings → Pages** ในหัวข้อ **Build and deployment** ให้เลือก Source เป็น **Deploy from a branch** เลือก Branch เป็น `main` และโฟลเดอร์ `/ (root)` แล้วกด **Save**
+5. รอ 1–2 นาที เว็บจะออนไลน์ที่ `https://<ชื่อผู้ใช้>.github.io/feeder-loss-optimizer/`
+6. เมื่อต้องการอัปเดตเว็บ ให้อัปโหลดไฟล์ `index.html` ใหม่ทับไฟล์เดิมใน repository
+
+### วิธีที่ 2: โฮสต์ไฟล์ static อื่น ๆ
+
+ใช้ได้กับบริการที่โฮสต์ไฟล์ HTML ธรรมดา เช่น Netlify, Cloudflare Pages หรือเว็บเซิร์ฟเวอร์ภายในหน่วยงาน โดยนำไฟล์ `index.html` ไปวางไว้ที่ root ของเว็บ
+
+### วิธีที่ 3: ใช้ในเครื่องหรือแชร์เป็นไฟล์
+
+ดับเบิลคลิกเปิดไฟล์ `index.html` ด้วย Chrome หรือ Edge ก็ใช้งานได้ หรือส่งไฟล์นี้ให้เพื่อนร่วมงานทางอีเมลหรือ LINE ได้เลย
+
+## หมายเหตุ
+
+- **ต้องต่ออินเทอร์เน็ตในครั้งแรก** เพื่อโหลดฟอนต์และไลบรารีจาก cdnjs ได้แก่:
+  - html2canvas และ jsPDF สำหรับสร้าง PDF
+  - SheetJS สำหรับอ่านไฟล์ Excel
+- **ผลลัพธ์เป็นการประเมินเบื้องต้นสำหรับการวางแผน** ควรตรวจสอบสิ่งต่อไปนี้ก่อนปฏิบัติงานจริง:
+  - แรงดันตก
+  - ความสามารถของจุดโอนโหลด
+  - Simulation ซ้ำใน DIgSILENT
+
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Feeder Loss Optimizer 22 kV</title>
+<meta name="description" content="โปรแกรมคำนวณการโอนโหลดระหว่างวงจร 22 kV เพื่อลดหน่วยสูญเสีย (Technical Loss) ให้ต่ำที่สุด พร้อม Dashboard และรายงาน PDF ใช้งานฟรีผ่านเว็บเบราว์เซอร์">
+<meta property="og:title" content="Feeder Loss Optimizer 22 kV">
+<meta property="og:description" content="Optimization หน่วยสูญเสียวงจร 22 kV ด้วยการปรับสมดุลโหลด พร้อมรายงาน PDF">
+<meta name="theme-color" content="#d9730d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2314201d'/%3E%3Cpath d='M18 4 8 18h7l-2 10 11-15h-7z' fill='%23f0913a'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html{color-scheme:light;-webkit-text-size-adjust:100%}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+/* Layout: engineering worksheet — settings strip, summary readout, one wide feeder table, loss chart below */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --ink:#14201d; --muted:#5a6b66; --line:#d6dedb;
+  --accent:#d9730d; --accent-soft:#fbe9d6; --before:#9fb2ac; --good:#1f8a5b; --bad:#c2410c;
+  --input:#f8faf9;
+  --f-display:"Chakra Petch","IBM Plex Sans Thai",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans Thai",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1715; --surface:#16211e; --ink:#e3ece9; --muted:#93a59f; --line:#2a3834;
+  --accent:#f0913a; --accent-soft:#3a2614; --before:#4d625c; --good:#4cc38a; --bad:#f28b5b; --input:#111a18; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1715; --surface:#16211e; --ink:#e3ece9; --muted:#93a59f; --line:#2a3834;
+  --accent:#f0913a; --accent-soft:#3a2614; --before:#4d625c; --good:#4cc38a; --bad:#f28b5b; --input:#111a18; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:22px}
+header h1{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,3.4vw,30px);margin:0;letter-spacing:.01em;text-wrap:balance}
+header p{margin:4px 0 0;color:var(--muted);max-width:70ch}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px}
+h2{font-family:var(--f-display);font-size:17px;font-weight:600;margin:0 0 10px}
+.settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px 16px;align-items:end}
+.field{display:grid;gap:4px;min-width:0}
+.field label{font-size:12px;color:var(--muted)}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--input);border:1px solid var(--line);border-radius:5px;padding:6px 8px;min-width:0}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.check{display:flex;gap:8px;align-items:center;font-size:13px}
+.check input{width:16px;height:16px;accent-color:var(--accent)}
+.formula{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line);margin-top:14px;padding-top:10px;display:flex;flex-wrap:wrap;gap:6px 22px}
+.formula b{color:var(--ink);font-weight:500}
+
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tile{background:var(--surface);padding:14px 16px;display:grid;gap:2px}
+.tile .k{font-size:12px;color:var(--muted)}
+.tile .v{font-family:var(--f-mono);font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}
+.tile .s{font-size:12px;color:var(--muted);font-family:var(--f-mono)}
+.tile.hero{background:var(--accent-soft)}
+.tile.hero .v{color:var(--accent)}
+
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;font-size:13px;cursor:pointer;border-radius:5px;padding:6px 12px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.tablebox{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;min-width:980px;font-variant-numeric:tabular-nums}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-size:12px;font-weight:600;color:var(--muted);background:var(--bg);position:sticky;top:0;text-align:right;vertical-align:bottom}
+th.l,td.l{text-align:left}
+th.grp{text-align:center;font-family:var(--f-mono);letter-spacing:.08em;font-size:11px;text-transform:uppercase}
+th.out,td.out{background:color-mix(in srgb,var(--accent-soft) 45%,transparent)}
+td input{width:78px;text-align:right;font-family:var(--f-mono);font-size:13px;padding:4px 6px}
+td input.name{width:80px;text-align:left}
+td input.st{width:56px;text-align:left}
+td input.lsf{width:56px}
+.stname{display:block;font-size:11px;color:var(--muted);font-family:var(--f-body)}
+.stable{min-width:640px}
+td input::placeholder{color:var(--muted);opacity:.8}
+td.num{font-family:var(--f-mono);font-size:13px}
+.pos{color:var(--bad)} .neg{color:var(--good)} .zero{color:var(--muted)}
+td.save{font-weight:500;color:var(--good)}
+tr.stbreak td{border-top:2px solid var(--line)}
+.del{font-size:12px;padding:3px 10px;color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
+.del:hover{background:var(--bad);border-color:var(--bad);color:#fff}
+button.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
+button.danger:not(:disabled):hover{background:var(--bad);border-color:var(--bad);color:#fff}
+button:disabled.danger{opacity:.45;cursor:not-allowed}
+td.sel,th.sel{text-align:center;width:28px}
+td.sel input,th.sel input{width:16px;height:16px;accent-color:var(--bad);cursor:pointer}
+tr.picked td{background:color-mix(in srgb,var(--bad) 8%,transparent)}
+.undo{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:8px;padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg);font-size:13px}
+.undo button{padding:4px 12px}
+
+/* Site chrome */
+.topbar{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;padding-top:env(safe-area-inset-top,0px)}
+.topbar-in{max-width:1180px;margin:0 auto;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;justify-content:space-between}
+.brand{display:flex;gap:10px;align-items:center;font-family:var(--f-display);font-weight:700;font-size:16px;color:var(--ink);text-decoration:none}
+.brand svg{width:26px;height:26px;flex:none}
+.nav{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13.5px}
+.nav a{color:var(--muted);text-decoration:none;padding:4px 0;border-bottom:2px solid transparent}
+.nav a:hover,.nav a:focus-visible{color:var(--ink);border-bottom-color:var(--accent);outline:none}
+section[id]{scroll-margin-top:72px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;counter-reset:st;margin:0;padding:0;list-style:none}
+.steps li{counter-increment:st;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.steps li::before{content:counter(st);grid-row:span 2;width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:15px}
+.steps b{font-family:var(--f-display);font-weight:600;font-size:15px}
+.steps span{color:var(--muted);font-size:13px}
+.drop{display:grid;place-items:center;gap:6px;text-align:center;border:2px dashed var(--line);border-radius:8px;padding:22px 16px;cursor:pointer;background:var(--input)}
+.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.drop strong{font-family:var(--f-display);font-size:15px}
+.drop small{color:var(--muted)}
+.drop input{position:absolute;width:1px;height:1px;opacity:0}
+.import-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:760px){.import-grid{grid-template-columns:1fr}}
+.import-help{font-size:13px;color:var(--muted);display:grid;gap:8px}
+.import-help code{font-family:var(--f-mono);font-size:12px;color:var(--ink);background:var(--bg);padding:1px 5px;border-radius:3px}
+td.empty{text-align:center;color:var(--muted);padding:28px 8px;white-space:normal}
+.privacy{font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
+footer.site{border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+footer.site .in{max-width:1180px;margin:0 auto;padding-block:20px 28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:6px}
+tfoot td{font-weight:600;background:var(--bg);font-family:var(--f-mono)}
+.warn{color:var(--bad);font-size:13px;margin-top:8px}
+.note{font-size:12.5px;color:var(--muted);margin-top:8px}
+
+.chartbox{overflow-x:auto}
+.chart text{font-family:var(--f-mono);font-size:10px;fill:var(--muted)}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-bottom:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+.import textarea{width:100%;min-height:120px;font-family:var(--f-mono);font-size:12.5px;box-sizing:border-box}
+details summary{cursor:pointer;font-family:var(--f-display);font-weight:600;font-size:15px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:30;max-width:min(560px,calc(100vw - 32px));background:var(--ink);color:var(--bg);font-size:13.5px;padding:10px 16px;border-radius:8px;box-shadow:0 6px 24px rgb(0 0 0 / .18)}
+.toast:empty{display:none}
+@media (prefers-reduced-motion:no-preference){button{transition:border-color .15s}}
+button:disabled{opacity:.6;cursor:progress}
+
+/* PDF report pages: fixed light print palette, A4 at 96 dpi, rendered off-screen */
+.rpt-host{position:absolute;left:-12000px;top:0;z-index:-1}
+.rpt{width:794px;height:1123px;box-sizing:border-box;padding:38px 40px 30px;background:#ffffff;color:#14201d;font-family:var(--f-body);font-size:11px;line-height:1.45;display:flex;flex-direction:column;gap:14px;position:relative}
+.rpt-top{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #14201d;padding-bottom:10px}
+.rpt-eb{font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;color:#d9730d}
+.rpt h1{font-family:var(--f-display);font-size:21px;margin:2px 0 4px;font-weight:700}
+.rpt h3{font-family:var(--f-display);font-size:13px;margin:0 0 6px;font-weight:600}
+.rpt .meta{color:#5a6b66}
+.rpt-cond{border:1px solid #d6dedb;border-radius:4px;padding:6px 10px;min-width:220px;display:grid;grid-template-columns:auto auto;gap:1px 12px;font-size:10px}
+.rpt-cond span:nth-child(odd){color:#5a6b66}
+.rpt-cond span:nth-child(even){text-align:right;font-family:var(--f-mono)}
+.rpt-kpi{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid #d6dedb;border-radius:4px;overflow:hidden}
+.rpt-kpi div{padding:9px 10px;border-right:1px solid #d6dedb;display:grid;gap:1px}
+.rpt-kpi div:last-child{border-right:none}
+.rpt-kpi .k{color:#5a6b66;font-size:10px}
+.rpt-kpi .v{font-family:var(--f-mono);font-size:18px;font-weight:500}
+.rpt-kpi .s{font-family:var(--f-mono);font-size:9.5px;color:#5a6b66}
+.rpt-kpi .hi{background:#fbe9d6}
+.rpt-kpi .hi .v{color:#c25f00}
+.rpt-row{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+.rpt-box{border:1px solid #d6dedb;border-radius:4px;padding:10px 12px}
+.rpt table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.rpt th,.rpt td{padding:3px 5px;border-bottom:1px solid #e3e8e6;text-align:right;white-space:nowrap}
+.rpt th{font-weight:600;color:#5a6b66;font-size:9.5px;border-bottom:1.5px solid #14201d;vertical-align:bottom}
+.rpt td{font-family:var(--f-mono);font-size:10px}
+.rpt .l{text-align:left}
+.rpt td.th{font-family:var(--f-body)}
+.rpt .o{background:#fdf4ea}
+.rpt .g{color:#1f8a5b}
+.rpt .r{color:#c2410c}
+.rpt tfoot td{font-weight:600;border-top:1.5px solid #14201d;border-bottom:none}
+.rpt-legend{display:flex;gap:14px;font-size:9.5px;color:#5a6b66;margin-bottom:4px}
+.rpt-legend i{display:inline-block;width:9px;height:9px;margin-right:5px;vertical-align:-1px}
+.rpt-foot{position:absolute;left:40px;right:40px;bottom:16px;display:flex;justify-content:space-between;font-size:9px;color:#5a6b66;border-top:1px solid #d6dedb;padding-top:5px}
+.rpt-method{display:grid;gap:4px;font-size:10.5px}
+.rpt-method b{font-family:var(--f-mono);font-weight:500}
+.rpt-warn{color:#c2410c;font-size:10px}
+.rpt-sign{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:auto;padding:0 30px 26px;text-align:center;font-size:10.5px}
+.rpt-sign div{border-top:1px dotted #5a6b66;padding-top:6px}
+</style>
+</head>
+<body>
+<nav class="topbar" aria-label="เมนูหลัก">
+  <div class="topbar-in">
+    <a class="brand" href="#top"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#14201d"/><path d="M18 4 8 18h7l-2 10 11-15h-7z" fill="#f0913a"/></svg>Feeder Loss Optimizer</a>
+    <div class="nav"><a href="#howto">วิธีใช้</a><a href="#import">นำเข้าข้อมูล</a><a href="#settings">เงื่อนไข</a><a href="#results">ผลลัพธ์</a><a href="#feeders">ตารางวงจร</a></div>
+  </div>
+</nav>
+
+<main class="wrap" id="top">
+  <header>
+    <div class="eyebrow">22 kV · Technical Loss · Load Balancing</div>
+    <h1>โปรแกรม Optimization หน่วยสูญเสียวงจร 22 kV</h1>
+    <p>หาการกระจายโหลดใหม่ระหว่างวงจร (โอนโหลดผ่านสวิตช์เชื่อมวงจร) ให้ Peak Loss รวมต่ำที่สุด โดยโหลดรวมของแต่ละสถานีเท่าเดิม และไม่เกินพิกัดของแต่ละวงจร ใช้ได้ทันทีโดยไม่ต้องสมัครสมาชิก</p>
+    <p class="privacy">🔒 ข้อมูลทั้งหมดคำนวณและเก็บอยู่ในเบราว์เซอร์ของคุณเท่านั้น ไม่มีการส่งขึ้นเซิร์ฟเวอร์</p>
+  </header>
+
+  <section id="howto" aria-labelledby="howto-h">
+    <h2 id="howto-h">วิธีใช้งาน</h2>
+    <ol class="steps">
+      <li><b>นำเข้าข้อมูล</b><span>อัปโหลดไฟล์ Excel/CSV ผล DIgSILENT วางข้อมูลจาก Excel หรือแก้ไขในตารางโดยตรง</span></li>
+      <li><b>ตั้งเงื่อนไข</b><span>กำหนดพิกัดโหลดต่อวงจร ขีดจำกัดการโอนโหลด และค่าพลังงาน ผลจะคำนวณใหม่ทันที</span></li>
+      <li><b>ดูผลและดาวน์โหลด</b><span>ดูโหลดใหม่ Loss ที่ลดลง และกราฟ แล้วดาวน์โหลดรายงาน PDF หรือไฟล์ CSV</span></li>
+    </ol>
+  </section>
+
+  <section class="panel" id="import">
+    <h2>1 · นำเข้าข้อมูล</h2>
+    <div class="import-grid">
+      <div style="display:grid;gap:10px;min-width:0">
+        <label class="drop" id="drop" for="fileIn">
+          <strong>อัปโหลดไฟล์ Excel หรือ CSV</strong>
+          <small>คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่ (.xlsx, .xls, .csv)</small>
+          <input type="file" id="fileIn" accept=".xlsx,.xls,.csv,.txt">
+        </label>
+        <details>
+          <summary>หรือวางข้อมูลที่คัดลอกจาก Excel</summary>
+          <textarea id="paste" style="width:100%;min-height:120px;margin-top:8px;font-family:var(--f-mono);font-size:12.5px" placeholder="CHT01	4.09	36.33	0.45&#10;CHU01	7.90	151.75	0.82&#10;KMK01	5.80	277.15	0.78"></textarea>
+          <div class="btns" style="margin-top:8px"><button id="doImport" type="button" class="primary">นำเข้า (แทนที่ข้อมูลเดิม)</button></div>
+        </details>
+      </div>
+      <div class="import-help">
+        <div>โปรแกรมอ่านหัวตารางให้อัตโนมัติ รองรับไฟล์ผล DIgSILENT ที่มีคอลัมน์ <code>ตัวย่อสถานีไฟฟ้า</code> <code>สถานีไฟฟ้า</code> <code>วงจร</code> <code>Peak Load [MW]</code> <code>Peak Loss</code> <code>Loss Factor</code></div>
+        <div>ถ้าไม่มีหัวตาราง ให้เรียงคอลัมน์เป็น: ชื่อวงจร · Peak Load (MW) · Peak Loss · Loss Factor · k · พิกัด (MW) (สามคอลัมน์แรกจำเป็น)</div>
+        <div class="btns"><button id="tplBtn" type="button">ดาวน์โหลดไฟล์แม่แบบ (CSV)</button><button id="loadSample" type="button">ใช้ข้อมูลตัวอย่าง 30 วงจร</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="settings">
+    <h2>2 · เงื่อนไขการคำนวณ</h2>
+    <div class="settings">
+      <div class="field"><label for="pmaxDef">พิกัดโหลดสูงสุดต่อวงจร (MW)</label><input id="pmaxDef" type="number" step="0.1" value="12.0"></div>
+      <div class="field"><label for="shift">โอนโหลดได้ไม่เกิน ± (MW/วงจร)</label><input id="shift" type="number" step="0.1" value="2.0" placeholder="ว่าง = ไม่จำกัด"></div>
+      <div class="field"><label for="pmin">โหลดต่ำสุดต่อวงจร (MW)</label><input id="pmin" type="number" step="0.1" value="1.0"></div>
+      <div class="field"><label for="unit">หน่วยของ Loss</label><select id="unit"><option value="kW">kW</option><option value="MW">MW</option></select></div>
+      <div class="field"><label for="llf">Loss Factor ตั้งต้น (ใช้เมื่อช่องว่าง/0)</label><input id="llf" type="number" step="0.01" value="0.35"></div>
+      <div class="field"><label for="price">ค่าพลังงาน (บาท/kWh)</label><input id="price" type="number" step="0.01" value="3.50"></div>
+      <label class="check" for="bySt"><input id="bySt" type="checkbox" checked> โอนโหลดได้เฉพาะวงจรในสถานีเดียวกัน</label>
+    </div>
+    <div class="formula">
+      <span><b>Loss = k × P²</b> (I²R, แรงดันและ pf คงที่)</span>
+      <span><b>k = Loss เดิม / Load เดิม²</b> ถ้าไม่กรอก</span>
+      <span>จุดเหมาะสม: <b>2·k·P = λ</b> เท่ากันทุกวงจรในกลุ่ม</span>
+      <span>พลังงานสูญเสียต่อปี = Σ Peak Loss × 8,760 × Loss Factor</span>
+    </div>
+  </section>
+
+  <section id="results" style="display:grid;gap:12px">
+    <div class="bar" style="margin:0">
+      <h2 style="margin:0">3 · ผลลัพธ์</h2>
+      <div class="btns">
+        <button id="csvOut" type="button">ดาวน์โหลดผลลัพธ์ (CSV)</button>
+        <button id="pdfBtn" type="button" class="primary">ดาวน์โหลดรายงาน PDF</button>
+      </div>
+    </div>
+    <div class="summary" id="summary" aria-live="polite"></div>
+  </section>
+
+  <section class="panel">
+    <h2>สรุปรายสถานี</h2>
+    <div class="tablebox">
+      <table class="stable">
+        <thead><tr><th class="l">สถานี</th><th>วงจร</th><th>Peak Load (MW)</th><th>Peak Loss เดิม (<span class="u">kW</span>)</th><th class="out">Peak Loss ใหม่ (<span class="u">kW</span>)</th><th class="out">ลดลง (<span class="u">kW</span>)</th><th class="out">ลดลง (%)</th><th class="out">ประหยัด (MWh/ปี)</th></tr></thead>
+        <tbody id="stbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="feeders">
+    <div class="bar">
+      <h2 style="margin:0">ตารางวงจรและผลรายวงจร <span id="count" class="eyebrow" style="margin-left:6px"></span></h2>
+      <div class="btns">
+        <button id="addRow" type="button">+ เพิ่มวงจร</button>
+        <button id="delSel" type="button" class="danger" disabled>ลบวงจรที่เลือก</button>
+        <button id="clearAll" type="button" class="danger">ล้างข้อมูลทั้งหมด</button>
+        <button id="copyOut" type="button">คัดลอกผลลัพธ์ (วางใน Excel)</button>
+      </div>
+    </div>
+    <div class="tablebox">
+      <table>
+        <thead>
+          <tr>
+            <th class="grp l" colspan="9">ข้อมูลนำเข้า (DIgSILENT)</th>
+            <th class="grp out" colspan="5">ผลลัพธ์</th><th></th>
+          </tr>
+          <tr>
+            <th class="sel"><input type="checkbox" id="selAll" aria-label="เลือกทุกวงจร"></th>
+            <th class="l">#</th><th class="l">ชื่อวงจร</th><th class="l">สถานี</th>
+            <th>Peak Load เดิม<br>(MW)</th><th>Peak Loss เดิม<br>(<span class="u">kW</span>)</th><th>Loss<br>Factor</th><th>ค่าคงที่ k<br>(<span class="u">kW</span>/MW²)</th><th>พิกัด<br>(MW)</th>
+            <th class="out">Load ใหม่<br>(MW)</th><th class="out">ΔLoad<br>(MW)</th><th class="out">Loss ใหม่<br>(<span class="u">kW</span>)</th><th class="out">Loss ลดลง<br>(<span class="u">kW</span>)</th><th class="out">ลดลง<br>(%)</th><th>ลบ</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+        <tfoot id="tfoot"></tfoot>
+      </table>
+    </div>
+    <div class="warn" id="warn"></div>
+    <div class="note">ช่อง k และพิกัดปล่อยว่างได้ (ใช้ค่าคำนวณ / ค่าพิกัดตั้งต้น) · ΔLoad บวก = รับโหลดเพิ่ม, ลบ = โอนโหลดออก · ข้อมูลตั้งต้นมาจากผล DIgSILENT (Peak Load, Peak Loss, Loss Factor) · Loss Factor ว่างหรือ 0 จะใช้ค่าตั้งต้น</div>
+    <div class="undo" id="undoBar" hidden><span id="undoMsg"></span><button type="button" id="undoBtn">เลิกทำ</button></div>
+    <div class="toast" id="toast"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Loss รายวงจร ก่อน–หลัง Optimization</h2>
+    <div class="legend"><span><i style="background:var(--before)"></i>Loss เดิม</span><span><i style="background:var(--accent)"></i>Loss ใหม่</span></div>
+    <div class="chartbox" id="chart"></div>
+  </section>
+
+</main>
+
+<footer class="site">
+  <div class="in">
+    <div><b>Feeder Loss Optimizer 22 kV</b> · หลักการ: Loss = k × P² และหาจุดที่ incremental loss (2kP) เท่ากันทุกวงจรในกลุ่ม ภายใต้พิกัดและขีดจำกัดการโอนโหลด</div>
+    <div>ผลลัพธ์เป็นการประเมินเบื้องต้นสำหรับการวางแผน ควรตรวจสอบแรงดันตก ความสามารถของจุดโอนโหลด และ Simulation ซ้ำใน DIgSILENT ก่อนปฏิบัติงานจริง</div>
+    <div>ข้อมูลที่กรอกจะถูกบันทึกไว้ในเบราว์เซอร์นี้โดยอัตโนมัติ เปิดหน้าเว็บครั้งถัดไปจะเห็นข้อมูลเดิม</div>
+  </div>
+</footer>
+
+<script>
+/* DIgSILENT: ชื่อวงจร · Peak Load (MW) · Peak Loss (kW) · Loss Factor */
+const SAMPLE = `CHT01 4.09 36.33 0.45
+CHT02 5.64 47.40 0.57
+CHT03 0.40 0.45 1.00
+CHT04 7.70 70.77 0.66
+CHT05 6.65 215.81 0.71
+CHT06 1.20 2.27 0.74
+CHT07 3.19 32.88 0.76
+CHT08 6.74 68.81 0.76
+CHT09 8.23 210.88 0.77
+CHT10 3.09 38.56 0.80
+CHU01 7.90 151.75 0.82
+CHU02 4.70 34.51 0.77
+CHU03 7.60 73.82 0.87
+CHU04 7.00 92.25 0.78
+CHU05 1.30 3.28 0.65
+CHU06 5.70 94.31 0.81
+CHU07 4.50 66.85 0.82
+CHU08 0.50 1.71 1.00
+CHU09 0.30 1.50 1.00
+CHU10 11.70 386.20 0.65
+KMK01 5.80 277.15 0.78
+KMK03 4.60 34.75 0.79
+KMK05 6.50 157.38 0.88
+KMK06 4.00 91.16 0.76
+KMK07 0.10 0.10 0.00
+KMK08 0.10 0.10 0.00
+KMK09 9.00 298.32 0.82
+KMK10 6.90 240.99 0.84
+PYW01 9.40 133.24 0.85
+PYW06 0.70 3.11 0.58`;
+const DEFAULT_ST_NAME = {CHT:"จอมเทียน 1", CHU:"จอมเทียน 2", KMK:"เขาไม้แก้ว", PYW:"พัทยาใต้ 3"};
+let ST_NAME = {...DEFAULT_ST_NAME};
+
+const $ = id => document.getElementById(id);
+let rows = [];
+const stOf = n => (String(n).match(/^[A-Za-zก-๙]+/) || [""])[0].toUpperCase();
+const num = v => { const x = parseFloat(String(v??"").replace(/,/g,"")); return isFinite(x) ? x : null; };
+const f = (x,d=2) => x==null||!isFinite(x) ? "–" : x.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- Import: text/Excel → rows, with header detection ---------- */
+function textToGrid(txt){
+  return txt.split(/\r?\n/).map(l=>l.includes("\t") ? l.split("\t") : /[,;]/.test(l) ? l.split(/[,;]/) : l.trim().split(/\s+/));
+}
+function detectCols(hdr){
+  const H = hdr.map(h=>String(h??"").trim().toLowerCase());
+  const find = t => H.findIndex(t);
+  const c = {};
+  c.abbr   = find(h=>/ตัวย่อ|abbr/.test(h));
+  c.stname = find((h,i)=>i!==c.abbr && /ชื่อสถานี|สถานีไฟฟ้า|substation/.test(h));
+  c.name   = find(h=>/ชื่อวงจร|feeder\s*name|^feeder$|^name$/.test(h));
+  c.no     = find(h=>/^วงจร(ที่)?$|^no\.?$|feeder\s*no/.test(h));
+  c.load   = find(h=>/peak\s*load/.test(h) && !/var/.test(h));
+  if(c.load<0) c.load = find(h=>/load|โหลด/.test(h) && !/var|factor|average|avg|เฉลี่ย/.test(h));
+  c.loss   = find(h=>/loss|สูญเสีย/.test(h) && !/factor/.test(h));
+  c.lsf    = find(h=>/loss\s*factor|lsf/.test(h));
+  c.k      = find(h=>/ค่าคงที่|^k\b/.test(h));
+  c.pmax   = find(h=>/พิกัด|rating|pmax|capacity/.test(h));
+  return c;
+}
+function parseGrid(grid){
+  grid = grid.map(r=>r.map(c=>String(c??"").trim())).filter(r=>r.some(c=>c!==""));
+  const out = [], names = {};
+  let hi = -1, cols = null;
+  for(let i=0; i<Math.min(10,grid.length); i++){
+    const c = detectCols(grid[i]);
+    if(c.load>=0 && c.loss>=0 && (c.name>=0 || c.abbr>=0)){ hi=i; cols=c; break; }
+  }
+  if(cols){
+    grid.slice(hi+1).forEach(r=>{
+      let name = cols.name>=0 ? r[cols.name] : "";
+      if(!name && cols.abbr>=0 && r[cols.abbr]){
+        const no = cols.no>=0 ? r[cols.no] : "";
+        name = r[cols.abbr].toUpperCase() + (no!=="" && no!=null ? String(no).padStart(2,"0") : "");
+      }
+      if(!name || num(r[cols.load])==null) return;
+      const st = cols.abbr>=0 && r[cols.abbr] ? r[cols.abbr].toUpperCase() : stOf(name);
+      if(cols.stname>=0 && r[cols.stname]) names[st] = r[cols.stname];
+      out.push({name, st, load:r[cols.load], loss:r[cols.loss]??"", lsf:cols.lsf>=0?(r[cols.lsf]??""):"", k:cols.k>=0?(r[cols.k]??""):"", pmax:cols.pmax>=0?(r[cols.pmax]??""):""});
+    });
+  } else {
+    grid.forEach(c=>{
+      if(c.length<3 || num(c[1])==null) return;
+      out.push({name:c[0], st:stOf(c[0]), load:c[1], loss:c[2], lsf:c[3]??"", k:c[4]??"", pmax:c[5]??""});
+    });
+  }
+  return {rows:out, names};
+}
+const parseText = txt => parseGrid(textToGrid(txt)).rows;
+
+/* ---------- Optimization: min Σ k·P²  s.t. ΣP = ΣP0 (per group), lo ≤ P ≤ hi ---------- */
+function optimize(){
+  const pmaxDef = num($("pmaxDef").value) ?? Infinity;
+  const shiftV = num($("shift").value); const shift = shiftV==null ? Infinity : Math.abs(shiftV);
+  const pmin = Math.max(0, num($("pmin").value) ?? 0);
+  const bySt = $("bySt").checked;
+  const warns = [];
+  const R = rows.map((r,i)=>{
+    const P0 = num(r.load), L0 = num(r.loss);
+    let k = num(r.k);
+    const kAuto = (k==null);
+    if(kAuto) k = (P0>0 && L0!=null) ? L0/(P0*P0) : null;
+    const pmax = num(r.pmax) ?? pmaxDef;
+    return {i, r, P0, L0, k, kAuto, pmax, Pn:P0};
+  });
+  const valid = R.filter(x=>x.P0!=null && x.P0>0 && x.k!=null);
+  const groups = {};
+  valid.forEach(x=>{ const g = bySt ? (x.r.st||"—") : "ALL"; (groups[g] ||= []).push(x); });
+  Object.entries(groups).forEach(([g,G])=>{
+    G.forEach(x=>{
+      x.hi = Math.min(x.pmax, x.P0 + shift);
+      x.lo = Math.min(Math.max(Math.min(pmin, x.P0), x.P0 - shift), x.hi);
+      x.kk = Math.max(x.k, 1e-9);
+    });
+    const T = G.reduce((s,x)=>s+x.P0,0);
+    const sLo = G.reduce((s,x)=>s+x.lo,0), sHi = G.reduce((s,x)=>s+x.hi,0);
+    if(T < sLo-1e-9 || T > sHi+1e-9){
+      warns.push(`สถานี ${g}: เงื่อนไขพิกัด/การโอนโหลดรับโหลดรวม ${f(T)} MW ไม่ได้ (ช่วงที่ทำได้ ${f(sLo)}–${f(sHi)} MW) จึงคงโหลดเดิมไว้`);
+      G.forEach(x=>x.Pn=x.P0); return;
+    }
+    let a=0, b=Math.max(...G.map(x=>2*x.kk*x.hi))+1;
+    const at = lam => G.reduce((s,x)=>s+Math.min(x.hi,Math.max(x.lo,lam/(2*x.kk))),0);
+    for(let it=0; it<200; it++){ const m=(a+b)/2; if(at(m)<T) a=m; else b=m; }
+    const lam=(a+b)/2;
+    G.forEach(x=>x.Pn=Math.min(x.hi,Math.max(x.lo,lam/(2*x.kk))));
+    G.forEach(x=>{
+      if(x.P0>x.pmax+1e-9 && x.Pn>x.pmax+1e-9) warns.push(`${x.r.name}: Peak Load เดิมเกินพิกัด ${f(x.pmax,1)} MW และโอนออกได้ไม่พอ`);
+      else if(x.P0>x.pmax+1e-9 && x.P0-x.Pn>shift+1e-9) warns.push(`${x.r.name}: Peak Load ${f(x.P0)} MW เกินพิกัด ${f(x.pmax,1)} MW จึงต้องโอนออก ${f(x.P0-x.Pn)} MW (เกินขีดจำกัดการโอน)`);
+    });
+  });
+  const lsfDef = num($("llf").value) ?? 0;
+  R.forEach(x=>{
+    if(x.k!=null && x.P0!=null){
+      x.Lold = (x.L0!=null && x.kAuto) ? x.L0 : x.k*x.P0*x.P0;
+      x.Lnew = x.k*x.Pn*x.Pn;
+      const l = num(x.r.lsf); x.lsf = (l!=null && l>0) ? l : lsfDef;
+    }
+  });
+  return {R, warns};
+}
+
+/* ---------- Render ---------- */
+function renderTable(){
+  const tb = $("tbody"); tb.innerHTML = "";
+  if(!rows.length){
+    tb.innerHTML = `<tr><td class="empty" colspan="15">ยังไม่มีข้อมูลวงจร · อัปโหลดไฟล์ Excel/CSV ในขั้นตอนที่ 1, กด “ใช้ข้อมูลตัวอย่าง” หรือกด “+ เพิ่มวงจร”</td></tr>`;
+  }
+  let prev = null;
+  rows.forEach((r,i)=>{
+    const tr = document.createElement("tr");
+    tr.className = (prev!==null && r.st!==prev ? "stbreak " : "") + (r.sel ? "picked" : "");
+    prev = r.st;
+    tr.innerHTML = `<td class="sel"><input type="checkbox" id="cb${i}" data-sel="${i}" ${r.sel?"checked":""} aria-label="เลือก ${esc(r.name)}"></td>
+      <td class="l num">${i+1}</td>
+      <td class="l"><input class="name" id="n${i}" data-f="name" value="${esc(r.name)}" aria-label="ชื่อวงจร"></td>
+      <td class="l"><input class="st" id="s${i}" data-f="st" value="${esc(r.st)}" title="${esc(ST_NAME[r.st]||"")}" aria-label="สถานี"></td>
+      <td><input id="p${i}" data-f="load" inputmode="decimal" value="${esc(r.load)}" aria-label="Peak Load เดิม"></td>
+      <td><input id="l${i}" data-f="loss" inputmode="decimal" value="${esc(r.loss)}" aria-label="Peak Loss เดิม"></td>
+      <td><input id="f${i}" class="lsf" data-f="lsf" inputmode="decimal" value="${esc(r.lsf)}" aria-label="Loss Factor"></td>
+      <td><input id="k${i}" data-f="k" inputmode="decimal" value="${esc(r.k)}" aria-label="ค่าคงที่ k"></td>
+      <td><input id="m${i}" data-f="pmax" inputmode="decimal" value="${esc(r.pmax)}" aria-label="พิกัด"></td>
+      <td class="num out" data-o="pn"></td><td class="num out" data-o="dp"></td>
+      <td class="num out" data-o="ln"></td><td class="num out save" data-o="dl"></td><td class="num out" data-o="pc"></td>
+      <td><button class="del" type="button" data-del="${i}" aria-label="ลบวงจร ${esc(r.name)}">ลบ</button></td>`;
+    tr.querySelector("[data-sel]").addEventListener("change",e=>{ rows[i].sel=e.target.checked; tr.classList.toggle("picked",e.target.checked); updateSel(); });
+    tr.querySelectorAll("input[data-f]").forEach(inp=>inp.addEventListener("input",e=>{
+      const fld=e.target.dataset.f; rows[i][fld]=e.target.value;
+      if(fld==="name" && !$("s"+i).dataset.touched){ rows[i].st=stOf(e.target.value); $("s"+i).value=rows[i].st; }
+      if(fld==="st") e.target.dataset.touched="1";
+      compute();
+    }));
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>deleteRows([+b.dataset.del])));
+  $("count").textContent = rows.length+" วงจร";
+  updateSel();
+}
+
+/* ---------- Delete & undo ---------- */
+let undoSnap = null, undoTimer = null;
+function updateSel(){
+  const n = rows.filter(r=>r.sel).length;
+  const b = $("delSel"); b.disabled = n===0; b.textContent = n ? `ลบวงจรที่เลือก (${n})` : "ลบวงจรที่เลือก";
+  const all = $("selAll"); all.checked = rows.length>0 && n===rows.length; all.indeterminate = n>0 && n<rows.length;
+}
+function deleteRows(idx){
+  if(!idx.length) return;
+  undoSnap = rows.map(r=>({...r}));
+  const names = idx.map(i=>rows[i].name);
+  const drop = new Set(idx);
+  rows = rows.filter((r,i)=>!drop.has(i));
+  renderTable(); compute();
+  $("undoMsg").textContent = names.length<=3 ? `ลบวงจร ${names.join(", ")} แล้ว` : `ลบ ${names.length} วงจรแล้ว (${names.slice(0,3).join(", ")} …)`;
+  $("undoBar").hidden = false;
+  clearTimeout(undoTimer); undoTimer = setTimeout(()=>{ $("undoBar").hidden = true; undoSnap = null; }, 15000);
+}
+$("undoBtn").onclick = ()=>{
+  if(!undoSnap) return;
+  rows = undoSnap; undoSnap = null; clearTimeout(undoTimer);
+  $("undoBar").hidden = true; renderTable(); compute(); toast("กู้คืนวงจรที่ลบแล้ว");
+};
+$("delSel").onclick = ()=>deleteRows(rows.map((r,i)=>r.sel?i:-1).filter(i=>i>=0));
+$("selAll").addEventListener("change",e=>{ rows.forEach(r=>r.sel=e.target.checked); renderTable(); });
+
+let last = null, lastSum = null;
+function compute(){
+  const unit = $("unit").value;
+  document.querySelectorAll(".u").forEach(s=>s.textContent=unit);
+  const {R, warns} = optimize(); last = R;
+  const trs = $("tbody").children;
+  let P0=0, Pn=0, Lo=0, Ln=0;
+  R.forEach((x,i)=>{
+    const tr = trs[i]; if(!tr) return;
+    const cell = o => tr.querySelector(`[data-o="${o}"]`);
+    const kIn = $("k"+i); kIn.placeholder = x.kAuto && x.k!=null ? f(x.k,3) : "";
+    $("m"+i).placeholder = f(num($("pmaxDef").value),1);
+    if(x.Lnew==null){ ["pn","dp","ln","dl","pc"].forEach(o=>cell(o).textContent="–"); return; }
+    const dP = x.Pn - x.P0, dL = x.Lold - x.Lnew;
+    cell("pn").textContent = f(x.Pn);
+    const c = cell("dp"); c.textContent = (dP>0.005?"+":"")+f(dP); c.className="num out "+(dP>0.005?"pos":dP<-0.005?"neg":"zero");
+    cell("ln").textContent = f(x.Lnew);
+    const d = cell("dl"); d.textContent = f(dL); d.style.color = dL< -0.005 ? "var(--bad)" : "";
+    cell("pc").textContent = x.Lold>0 ? f(dL/x.Lold*100,1) : "–";
+    P0+=x.P0; Pn+=x.Pn; Lo+=x.Lold; Ln+=x.Lnew;
+  });
+  const dTot = Lo-Ln;
+  $("tfoot").innerHTML = `<tr><td class="l" colspan="4">รวม</td><td>${f(P0)}</td><td>${f(Lo)}</td><td></td><td></td><td></td>
+    <td class="out">${f(Pn)}</td><td class="out">${f(Pn-P0)}</td><td class="out">${f(Ln)}</td><td class="out save">${f(dTot)}</td><td class="out">${Lo>0?f(dTot/Lo*100,1):"–"}</td><td></td></tr>`;
+  $("warn").innerHTML = warns.map(w=>"⚠ "+w).join("<br>");
+
+  const toKW = unit==="MW"?1000:1;
+  const price = num($("price").value) ?? 0;
+  const V = R.filter(x=>x.Lnew!=null);
+  const kWh = V.reduce((s,x)=>s+(x.Lold-x.Lnew)*x.lsf,0)*toKW*8760;
+  const sts = {};
+  V.forEach(x=>{ const g=x.r.st||"—"; const o=(sts[g] ||= {n:0,P:0,Lo:0,Ln:0,E:0}); o.n++; o.P+=x.P0; o.Lo+=x.Lold; o.Ln+=x.Lnew; o.E+=(x.Lold-x.Lnew)*x.lsf*toKW*8.76; });
+  lastSum = {P0,Pn,Lo,Ln,dTot,kWh,price,unit,sts,warns,n:V.length};
+  $("stbody").innerHTML = Object.entries(sts).map(([g,o])=>`<tr><td class="l">${esc(g)}<span class="stname">${esc(ST_NAME[g]||"")}</span></td><td class="num">${o.n}</td><td class="num">${f(o.P)}</td><td class="num">${f(o.Lo)}</td><td class="num out">${f(o.Ln)}</td><td class="num out save">${f(o.Lo-o.Ln)}</td><td class="num out">${o.Lo>0?f((o.Lo-o.Ln)/o.Lo*100,1):"–"}</td><td class="num out">${f(o.E,1)}</td></tr>`).join("");
+  $("summary").innerHTML = `
+    <div class="tile"><span class="k">Peak Load รวม</span><span class="v">${f(P0)}</span><span class="s">MW · ${R.filter(x=>x.Lnew!=null).length} วงจร</span></div>
+    <div class="tile"><span class="k">Peak Loss เดิม</span><span class="v">${f(Lo)}</span><span class="s">${unit} · ${P0>0?f(Lo*(unit==="kW"?0.1:100)/P0,2):"–"}% ของโหลด</span></div>
+    <div class="tile"><span class="k">Peak Loss ใหม่</span><span class="v">${f(Ln)}</span><span class="s">${unit} · ${P0>0?f(Ln*(unit==="kW"?0.1:100)/P0,2):"–"}% ของโหลด</span></div>
+    <div class="tile hero"><span class="k">Peak Loss ที่ลดลง</span><span class="v">${f(dTot)}</span><span class="s">${unit} · ลดลง ${Lo>0?f(dTot/Lo*100,1):"–"}%</span></div>
+    <div class="tile"><span class="k">พลังงานที่ประหยัดได้ต่อปี</span><span class="v">${f(kWh/1000,1)}</span><span class="s">MWh/ปี · ≈ ${f(kWh*price/1e6,2)} ล้านบาท</span></div>`;
+  renderChart(R);
+  saveState();
+}
+
+/* ---------- Auto-save in this browser ---------- */
+const STORE = "feederLossOptimizer.v1";
+const SETTING_IDS = ["pmaxDef","shift","pmin","unit","llf","price"];
+function saveState(){
+  try{
+    const settings = {}; SETTING_IDS.forEach(id=>settings[id]=$(id).value); settings.bySt=$("bySt").checked;
+    localStorage.setItem(STORE, JSON.stringify({rows:rows.map(({sel,...r})=>r), stNames:ST_NAME, settings}));
+  }catch(e){}
+}
+function loadState(){
+  try{
+    const s = JSON.parse(localStorage.getItem(STORE)||"null");
+    if(!s || !Array.isArray(s.rows)) return false;
+    rows = s.rows; ST_NAME = s.stNames || {...DEFAULT_ST_NAME};
+    if(s.settings){ SETTING_IDS.forEach(id=>{ if(s.settings[id]!=null) $(id).value=s.settings[id]; }); $("bySt").checked = s.settings.bySt!==false; }
+    return true;
+  }catch(e){ return false; }
+}
+
+/* ---------- File helpers ---------- */
+function saveBlob(blob, name){
+  const a=document.createElement("a"); const url=URL.createObjectURL(blob);
+  a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+}
+const csvCell = v => { const s=String(v??""); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
+const toCSV = lines => "﻿" + lines.map(r=>r.map(csvCell).join(",")).join("\r\n");
+const today = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+function applyImport(res, label){
+  if(!res.rows.length){ $("warn").textContent = "ไม่พบข้อมูลวงจรที่อ่านได้ ตรวจสอบว่ามีคอลัมน์ชื่อวงจร, Peak Load และ Peak Loss เป็นตัวเลข"; toast(""); return; }
+  rows = res.rows; ST_NAME = {...ST_NAME, ...res.names};
+  renderTable(); compute(); toast(`นำเข้า ${res.rows.length} วงจรจาก${label}แล้ว`);
+  $("results").scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+}
+async function readFile(file){
+  if(!file) return;
+  try{
+    if(/\.(xlsx|xls)$/i.test(file.name)){
+      if(!window.XLSX) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+      const wb = window.XLSX.read(await file.arrayBuffer(), {type:"array"});
+      let best = {rows:[], names:{}};
+      for(const sn of wb.SheetNames){
+        const grid = window.XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, raw:false, defval:""});
+        const res = parseGrid(grid); if(res.rows.length > best.rows.length) best = res;
+      }
+      applyImport(best, ` ${file.name} `);
+    } else {
+      const txt = (await file.text()).replace(/^﻿/,"");
+      let grid = null;
+      try{
+        if(!window.XLSX) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js");
+        const wb = window.XLSX.read(txt, {type:"string"});
+        grid = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:false, defval:""});
+      }catch(e){ grid = null; }
+      let res = grid ? parseGrid(grid) : {rows:[]};
+      if(!res.rows.length) res = parseGrid(textToGrid(txt));
+      applyImport(res, ` ${file.name} `);
+    }
+  }catch(e){
+    $("warn").textContent = e&&e.message==="load" ? "โหลดตัวอ่านไฟล์ Excel ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต หรือบันทึกไฟล์เป็น CSV แล้วลองใหม่" : "อ่านไฟล์ไม่สำเร็จ ตรวจสอบว่าเป็นไฟล์ .xlsx, .xls หรือ .csv";
+  }
+}
+
+function renderChart(R){
+  const D = R.filter(x=>x.Lnew!=null);
+  const W = Math.max(700, D.length*30+60), H = 240, ml=46, mb=40, mt=10, ch=H-mb-mt;
+  const maxV = Math.max(1,...D.map(x=>Math.max(x.Lold,x.Lnew)));
+  const step = [1,2,5,10,20,25,50,100,200,250,500,1000,2000,5000].find(s=>maxV/s<=5) || Math.ceil(maxV/5);
+  const top = Math.ceil(maxV/step)*step, y = v => mt + ch - v/top*ch;
+  const bw = (W-ml-10)/Math.max(1,D.length);
+  let s = `<svg class="chart" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Loss before and after per feeder">`;
+  for(let v=0; v<=top+1e-9; v+=step){
+    s += `<line x1="${ml}" x2="${W-10}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/>
+          <text x="${ml-6}" y="${y(v)+3}" text-anchor="end">${v}</text>`;
+  }
+  D.forEach((x,i)=>{
+    const x0 = ml + i*bw + bw*0.12, w = bw*0.36;
+    s += `<rect x="${x0}" y="${y(x.Lold)}" width="${w}" height="${ch-(y(x.Lold)-mt)}" fill="var(--before)"><title>${x.r.name} เดิม ${f(x.Lold)}</title></rect>
+          <rect x="${x0+w+1}" y="${y(x.Lnew)}" width="${w}" height="${ch-(y(x.Lnew)-mt)}" fill="var(--accent)"><title>${x.r.name} ใหม่ ${f(x.Lnew)}</title></rect>
+          <text x="${ml+i*bw+bw/2}" y="${H-mb+12}" text-anchor="end" transform="rotate(-50 ${ml+i*bw+bw/2} ${H-mb+12})">${x.r.name}</text>`;
+  });
+  s += `</svg>`;
+  $("chart").innerHTML = s;
+}
+
+/* ---------- Actions ---------- */
+function toast(t){ $("toast").textContent=t; clearTimeout(toast.t); toast.t=setTimeout(()=>$("toast").textContent="",3000); }
+$("addRow").onclick=()=>{ const st = rows.length?rows[rows.length-1].st:"NEW"; rows.push({name:st+String(rows.length+1).padStart(2,"0"),st,load:"5.0",loss:"30",k:"",pmax:""}); renderTable(); compute(); };
+$("loadSample").onclick=()=>{ rows=parseText(SAMPLE); ST_NAME={...DEFAULT_ST_NAME}; renderTable(); compute(); toast("ใช้ข้อมูลตัวอย่าง 30 วงจรแล้ว"); };
+$("doImport").onclick=()=>applyImport(parseGrid(textToGrid($("paste").value)), "ข้อมูลที่วาง");
+$("clearAll").onclick=()=>deleteRows(rows.map((r,i)=>i));
+$("fileIn").addEventListener("change",e=>{ readFile(e.target.files[0]); e.target.value=""; });
+const drop=$("drop");
+["dragenter","dragover"].forEach(t=>drop.addEventListener(t,e=>{ e.preventDefault(); drop.classList.add("over"); }));
+["dragleave","drop"].forEach(t=>drop.addEventListener(t,e=>{ e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop",e=>readFile(e.dataTransfer.files[0]));
+$("tplBtn").onclick=()=>{
+  const lines=[["ตัวย่อสถานีไฟฟ้า","สถานีไฟฟ้า","วงจร","Peak Load [MW]","Peak Loss [kW]","Loss Factor","พิกัด [MW]"],
+    ["CHT","จอมเทียน 1","1","4.09","36.33","0.45",""],
+    ["CHT","จอมเทียน 1","2","5.64","47.40","0.57",""],
+    ["CHU","จอมเทียน 2","1","7.90","151.75","0.82","12"]];
+  saveBlob(new Blob([toCSV(lines)],{type:"text/csv;charset=utf-8"}), "template_feeder_loss.csv");
+  toast("ดาวน์โหลดไฟล์แม่แบบแล้ว กรอกข้อมูลใน Excel แล้วอัปโหลดกลับมาได้เลย");
+};
+$("csvOut").onclick=()=>{
+  if(!lastSum || !lastSum.n){ toast("ยังไม่มีข้อมูลวงจร"); return; }
+  const u=$("unit").value;
+  const lines=[["ชื่อวงจร","สถานี","ชื่อสถานี","Peak Load เดิม (MW)",`Peak Loss เดิม (${u})`,"Loss Factor",`k (${u}/MW²)`,"Peak Load ใหม่ (MW)","ΔLoad (MW)",`Peak Loss ใหม่ (${u})`,`Peak Loss ลดลง (${u})`,"ลดลง (%)"]]
+    .concat(last.filter(x=>x.Lnew!=null).map(x=>[x.r.name,x.r.st,ST_NAME[x.r.st]||"",x.P0.toFixed(3),x.Lold.toFixed(3),x.lsf.toFixed(2),x.k.toFixed(5),x.Pn.toFixed(3),(x.Pn-x.P0).toFixed(3),x.Lnew.toFixed(3),(x.Lold-x.Lnew).toFixed(3),x.Lold>0?((x.Lold-x.Lnew)/x.Lold*100).toFixed(2):""]));
+  lines.push(["รวม","","",lastSum.P0.toFixed(3),lastSum.Lo.toFixed(3),"","",lastSum.Pn.toFixed(3),(lastSum.Pn-lastSum.P0).toFixed(3),lastSum.Ln.toFixed(3),lastSum.dTot.toFixed(3),lastSum.Lo>0?(lastSum.dTot/lastSum.Lo*100).toFixed(2):""]);
+  saveBlob(new Blob([toCSV(lines)],{type:"text/csv;charset=utf-8"}), `Loss_Optimization_22kV_${today()}.csv`);
+  toast("ดาวน์โหลดผลลัพธ์ CSV แล้ว");
+};
+$("copyOut").onclick=()=>{
+  const u=$("unit").value;
+  const head=["ชื่อวงจร","สถานี","Peak Load เดิม (MW)",`Peak Loss เดิม (${u})`,"Loss Factor",`k (${u}/MW²)`,"Peak Load ใหม่ (MW)","ΔLoad (MW)",`Peak Loss ใหม่ (${u})`,`Peak Loss ลดลง (${u})`];
+  const lines=[head.join("\t")].concat(last.filter(x=>x.Lnew!=null).map(x=>[x.r.name,x.r.st,x.P0.toFixed(3),x.Lold.toFixed(3),x.lsf.toFixed(2),x.k.toFixed(5),x.Pn.toFixed(3),(x.Pn-x.P0).toFixed(3),x.Lnew.toFixed(3),(x.Lold-x.Lnew).toFixed(3)].join("\t")));
+  const txt=lines.join("\n");
+  const fallback=()=>{ const t=$("paste"); t.closest("details").open=true; t.value=txt; t.select(); toast("คัดลอกอัตโนมัติไม่ได้ ข้อมูลถูกใส่ในช่องนำเข้าด้านล่างแล้ว กด Ctrl+C เพื่อคัดลอก"); };
+  try{ navigator.clipboard.writeText(txt).then(()=>toast("คัดลอกแล้ว วางใน Excel ได้เลย"),fallback); }catch(e){ fallback(); }
+};
+["pmaxDef","shift","pmin","unit","llf","price","bySt"].forEach(id=>$(id).addEventListener("input",compute));
+$("bySt").addEventListener("change",compute);
+
+/* ---------- PDF report ---------- */
+const RC = {ink:"#14201d", muted:"#5a6b66", line:"#e3e8e6", accent:"#d9730d", before:"#9fb2ac", good:"#1f8a5b", bad:"#c2410c"};
+const loadScript = src => new Promise((ok,no)=>{ const s=document.createElement("script"); s.src=src; s.onload=ok; s.onerror=()=>no(new Error("load")); document.head.appendChild(s); });
+async function ensureLibs(){
+  if(!window.html2canvas) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+  if(!window.jspdf) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+}
+function niceStep(span){ const raw=span/5, p=Math.pow(10,Math.floor(Math.log10(raw||1))), n=raw/p; return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p; }
+function chartCanvas(w,h,opt){
+  const c=document.createElement("canvas"), S=2; c.width=w*S; c.height=h*S; c.style.width=w+"px"; c.style.height=h+"px";
+  const x=c.getContext("2d"); x.scale(S,S);
+  const {labels, series, rotate, unit, valueLabels} = opt;
+  const ml=46, mr=6, mt=16, mb=rotate?42:22, cw=w-ml-mr, chh=h-mt-mb;
+  const all=series.flatMap(s=>s.vals);
+  const mx=Math.max(0,...all), mn=Math.min(0,...all);
+  const st=niceStep((mx-mn)||1), top=Math.ceil(mx/st)*st||st, bot=Math.floor(mn/st)*st;
+  const y=v=>mt+(top-v)/(top-bot)*chh;
+  x.font='9px "IBM Plex Mono", monospace'; x.textBaseline="middle";
+  for(let v=bot; v<=top+1e-9; v+=st){
+    x.strokeStyle = Math.abs(v)<1e-9 ? RC.ink : RC.line; x.lineWidth = Math.abs(v)<1e-9 ? 1 : 0.7;
+    x.beginPath(); x.moveTo(ml,y(v)); x.lineTo(w-mr,y(v)); x.stroke();
+    x.fillStyle=RC.muted; x.textAlign="right"; x.fillText(+v.toFixed(2)+"",ml-5,y(v));
+  }
+  x.textAlign="left"; x.fillText(unit,0,6);
+  const gw=cw/labels.length, ns=series.length, bw=Math.min(22,gw*0.78/ns);
+  labels.forEach((lb,i)=>{
+    const gx=ml+i*gw+(gw-bw*ns)/2;
+    series.forEach((s,j)=>{
+      const v=s.vals[i]; const y0=y(Math.max(0,v)), hh=Math.abs(y(v)-y(0));
+      x.fillStyle = typeof s.color==="function" ? s.color(v) : s.color;
+      x.fillRect(gx+j*bw, y0, bw-1, Math.max(hh,v!==0?0.8:0));
+      if(valueLabels){ x.fillStyle=RC.ink; x.textAlign="center"; x.fillText(f(v,1), gx+j*bw+bw/2, v>=0?y0-6:y0+hh+6); }
+    });
+    x.fillStyle=RC.muted;
+    if(rotate){ x.save(); x.translate(ml+i*gw+gw/2+3,h-mb+6); x.rotate(-Math.PI/3); x.textAlign="right"; x.fillText(lb,0,0); x.restore(); }
+    else { x.textAlign="center"; x.fillText(lb, ml+i*gw+gw/2, h-mb+11); }
+  });
+  return c;
+}
+const rptFoot = (p,n,d) => `<div class="rpt-foot"><span>Technical Loss Optimization · ระบบ 22 kV · สร้างเมื่อ ${d}</span><span>หน้า ${p}/${n}</span></div>`;
+
+function buildReport(){
+  const S=lastSum, u=S.unit, V=last.filter(x=>x.Lnew!=null);
+  const now=new Date();
+  const d=now.toLocaleDateString("th-TH",{year:"numeric",month:"long",day:"numeric"})+" "+now.toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"});
+  const stList=Object.keys(S.sts).map(g=>ST_NAME[g]?`${g} (${ST_NAME[g]})`:g).join(", ");
+  const shiftV=num($("shift").value);
+  const pct=(a,b)=>b>0?f(a/b*100,1):"–";
+  const lossPct=L=>S.P0>0?f(L*(u==="kW"?0.1:100)/S.P0,2):"–";
+
+  const chunks=[]; for(let i=0;i<V.length;i+=32) chunks.push(V.slice(i,i+32));
+  const methodOwnPage = chunks.length===0 || chunks[chunks.length-1].length>16;
+  const N = 1 + Math.max(1,chunks.length) + (methodOwnPage && chunks.length?1:0);
+  const pages=[];
+
+  /* Page 1: dashboard */
+  const p1=document.createElement("div"); p1.className="rpt";
+  p1.innerHTML=`
+    <div class="rpt-top">
+      <div><div class="rpt-eb">TECHNICAL LOSS OPTIMIZATION REPORT · 22 kV</div>
+        <h1>รายงานผลการลดหน่วยสูญเสียด้วยการปรับสมดุลโหลด</h1>
+        <div class="meta">สถานีไฟฟ้า: ${stList}<br>จำนวน ${S.n} วงจร · ข้อมูล Peak Load / Peak Loss จาก DIgSILENT · ${d}</div></div>
+      <div class="rpt-cond">
+        <span>พิกัดโหลดต่อวงจร</span><span>${f(num($("pmaxDef").value),1)} MW</span>
+        <span>โอนโหลดได้ไม่เกิน</span><span>${shiftV==null?"ไม่จำกัด":"± "+f(Math.abs(shiftV),1)+" MW"}</span>
+        <span>โหลดต่ำสุดต่อวงจร</span><span>${f(num($("pmin").value),1)} MW</span>
+        <span>ขอบเขตการโอนโหลด</span><span>${$("bySt").checked?"ภายในสถานี":"ทุกวงจร"}</span>
+        <span>Loss Factor ตั้งต้น</span><span>${f(num($("llf").value),2)}</span>
+        <span>ค่าพลังงาน</span><span>${f(S.price,2)} บาท/kWh</span>
+      </div>
+    </div>
+    <div class="rpt-kpi">
+      <div><span class="k">Peak Load รวม</span><span class="v">${f(S.P0)}</span><span class="s">MW</span></div>
+      <div><span class="k">Peak Loss เดิม</span><span class="v">${f(S.Lo,1)}</span><span class="s">${u} · ${lossPct(S.Lo)}% ของโหลด</span></div>
+      <div><span class="k">Peak Loss ใหม่</span><span class="v">${f(S.Ln,1)}</span><span class="s">${u} · ${lossPct(S.Ln)}% ของโหลด</span></div>
+      <div class="hi"><span class="k">Peak Loss ที่ลดลง</span><span class="v">${f(S.dTot,1)}</span><span class="s">${u} · ลดลง ${pct(S.dTot,S.Lo)}%</span></div>
+      <div><span class="k">พลังงานที่ประหยัด/ปี</span><span class="v">${f(S.kWh/1000,1)}</span><span class="s">MWh · ≈ ${f(S.kWh*S.price/1e6,2)} ล้านบาท</span></div>
+    </div>
+    <div class="rpt-row">
+      <div class="rpt-box"><h3>Peak Loss รายสถานี (${u})</h3>
+        <div class="rpt-legend"><span><i style="background:${RC.before}"></i>เดิม</span><span><i style="background:${RC.accent}"></i>หลัง Optimization</span></div>
+        <div id="c1"></div></div>
+      <div class="rpt-box"><h3>สรุปรายสถานี</h3>
+        <table><thead><tr><th class="l">สถานี</th><th>วงจร</th><th>Peak Load<br>(MW)</th><th>Loss เดิม<br>(${u})</th><th class="o">Loss ใหม่<br>(${u})</th><th class="o">ลดลง<br>(${u})</th><th class="o">%</th><th class="o">MWh/ปี</th></tr></thead>
+        <tbody>${Object.entries(S.sts).map(([g,o])=>`<tr><td class="l th">${g} ${ST_NAME[g]||""}</td><td>${o.n}</td><td>${f(o.P)}</td><td>${f(o.Lo,1)}</td><td class="o">${f(o.Ln,1)}</td><td class="o g">${f(o.Lo-o.Ln,1)}</td><td class="o">${pct(o.Lo-o.Ln,o.Lo)}</td><td class="o">${f(o.E,1)}</td></tr>`).join("")}</tbody>
+        <tfoot><tr><td class="l th">รวม</td><td>${S.n}</td><td>${f(S.P0)}</td><td>${f(S.Lo,1)}</td><td class="o">${f(S.Ln,1)}</td><td class="o g">${f(S.dTot,1)}</td><td class="o">${pct(S.dTot,S.Lo)}</td><td class="o">${f(S.kWh/1000,1)}</td></tr></tfoot></table></div>
+    </div>
+    <div class="rpt-box"><h3>Peak Loss รายวงจร ก่อน–หลัง Optimization (${u})</h3>
+      <div class="rpt-legend"><span><i style="background:${RC.before}"></i>เดิม</span><span><i style="background:${RC.accent}"></i>หลัง Optimization</span></div>
+      <div id="c2"></div></div>
+    <div class="rpt-box"><h3>แผนการโอนโหลด ΔLoad รายวงจร (MW)</h3>
+      <div class="rpt-legend"><span><i style="background:${RC.bad}"></i>รับโหลดเพิ่ม</span><span><i style="background:${RC.good}"></i>โอนโหลดออก</span></div>
+      <div id="c3"></div></div>
+    ${rptFoot(1,N,d)}`;
+  const stK=Object.keys(S.sts);
+  p1.querySelector("#c1").appendChild(chartCanvas(274,196,{labels:stK,unit:u,valueLabels:true,series:[{vals:stK.map(g=>S.sts[g].Lo),color:RC.before},{vals:stK.map(g=>S.sts[g].Ln),color:RC.accent}]}));
+  p1.querySelector("#c2").appendChild(chartCanvas(686,210,{labels:V.map(x=>x.r.name),rotate:true,unit:u,series:[{vals:V.map(x=>x.Lold),color:RC.before},{vals:V.map(x=>x.Lnew),color:RC.accent}]}));
+  p1.querySelector("#c3").appendChild(chartCanvas(686,170,{labels:V.map(x=>x.r.name),rotate:true,unit:"MW",series:[{vals:V.map(x=>+(x.Pn-x.P0).toFixed(3)),color:v=>v>=0?RC.bad:RC.good}]}));
+  pages.push(p1);
+
+  /* Detail pages */
+  const method = `
+    <div class="rpt-box rpt-method"><h3>วิธีการคำนวณและสมมติฐาน</h3>
+      <div>1. หน่วยสูญเสียแต่ละวงจรแปรตามกำลังสองของโหลด (I²R ที่แรงดันและ PF คงที่): <b>Loss = k × P²</b> โดย <b>k = Peak Loss / Peak Load²</b> จากผล DIgSILENT</div>
+      <div>2. เป้าหมาย: <b>min Σ kᵢPᵢ²</b> ภายใต้ <b>ΣPᵢ = ΣPᵢ⁰</b> ${$("bySt").checked?"ของแต่ละสถานี":"ของทั้งระบบ"} และ Pmin ≤ Pᵢ ≤ พิกัด, |ΔPᵢ| ≤ ขีดจำกัดการโอน</div>
+      <div>3. จุดเหมาะสมที่สุดคือ incremental loss เท่ากันทุกวงจร: <b>2kᵢPᵢ = λ</b> แก้ด้วยวิธี bisection</div>
+      <div>4. พลังงานสูญเสียต่อปี = <b>Peak Loss × 8,760 × Loss Factor</b> ของแต่ละวงจร</div>
+      <div>5. ผลลัพธ์เป็นการประเมินเบื้องต้น ควรตรวจสอบแรงดันตกปลายสาย ความสามารถของจุดโอนโหลด และ Simulation ซ้ำใน DIgSILENT ก่อนปฏิบัติงานจริง</div>
+      ${S.warns.length?`<div class="rpt-warn">ข้อสังเกต: ${S.warns.join(" · ")}</div>`:""}
+    </div>`;
+  const sign = `<div class="rpt-sign"><div>ผู้จัดทำ<br><br>(..............................................)</div><div>ผู้ตรวจสอบ<br><br>(..............................................)</div></div>`;
+  let pn=2;
+  chunks.forEach((ch,ci)=>{
+    const p=document.createElement("div"); p.className="rpt";
+    const isLast = ci===chunks.length-1;
+    p.innerHTML=`<div class="rpt-top"><div><div class="rpt-eb">FEEDER DETAIL</div><h1 style="font-size:17px">รายละเอียดผลการ Optimization รายวงจร</h1></div></div>
+      <table><thead><tr><th class="l">#</th><th class="l">วงจร</th><th>Peak Load<br>เดิม (MW)</th><th>Peak Loss<br>เดิม (${u})</th><th>Loss<br>Factor</th><th>k<br>(${u}/MW²)</th><th class="o">Peak Load<br>ใหม่ (MW)</th><th class="o">ΔLoad<br>(MW)</th><th class="o">Peak Loss<br>ใหม่ (${u})</th><th class="o">ลดลง<br>(${u})</th><th class="o">ลดลง<br>(%)</th></tr></thead>
+      <tbody>${ch.map((x,i)=>{ const dp=x.Pn-x.P0, dl=x.Lold-x.Lnew; return `<tr><td class="l">${ci*32+i+1}</td><td class="l">${x.r.name}</td><td>${f(x.P0)}</td><td>${f(x.Lold)}</td><td>${f(x.lsf)}</td><td>${f(x.k,3)}</td><td class="o">${f(x.Pn)}</td><td class="o ${dp>0.005?"r":dp<-0.005?"g":""}">${dp>0.005?"+":""}${f(dp)}</td><td class="o">${f(x.Lnew)}</td><td class="o g">${f(dl)}</td><td class="o">${pct(dl,x.Lold)}</td></tr>`; }).join("")}</tbody>
+      ${isLast?`<tfoot><tr><td class="l" colspan="2">รวม</td><td>${f(S.P0)}</td><td>${f(S.Lo)}</td><td></td><td></td><td class="o">${f(S.Pn)}</td><td class="o">${f(S.Pn-S.P0)}</td><td class="o">${f(S.Ln)}</td><td class="o g">${f(S.dTot)}</td><td class="o">${pct(S.dTot,S.Lo)}</td></tr></tfoot>`:""}</table>
+      ${isLast&&!methodOwnPage?method+sign:""}
+      ${rptFoot(pn,N,d)}`;
+    pages.push(p); pn++;
+  });
+  if(methodOwnPage){
+    const p=document.createElement("div"); p.className="rpt";
+    p.innerHTML=`${method}${sign}${rptFoot(pn,N,d)}`; pages.push(p);
+  }
+  return pages;
+}
+
+$("pdfBtn").onclick = async ()=>{
+  const btn=$("pdfBtn"); if(!lastSum || !lastSum.n){ toast("ยังไม่มีข้อมูลวงจรสำหรับสร้างรายงาน"); return; }
+  btn.disabled=true; btn.textContent="กำลังสร้างรายงาน…";
+  const host=document.createElement("div"); host.className="rpt-host";
+  try{
+    await ensureLibs();
+    if(document.fonts?.ready) await document.fonts.ready;
+    const pages=buildReport(); pages.forEach(p=>host.appendChild(p)); document.body.appendChild(host);
+    const pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",compress:true});
+    for(let i=0;i<pages.length;i++){
+      const cv=await window.html2canvas(pages[i],{scale:2,backgroundColor:"#ffffff",logging:false});
+      if(i) pdf.addPage();
+      pdf.addImage(cv.toDataURL("image/jpeg",0.92),"JPEG",0,0,210,297);
+    }
+    saveBlob(pdf.output("blob"), `Loss_Optimization_22kV_${today()}.pdf`);
+    toast("ดาวน์โหลดรายงาน PDF แล้ว");
+  }catch(e){
+    toast(e&&e.message==="load" ? "โหลดเครื่องมือสร้าง PDF ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่" : "สร้างรายงานไม่สำเร็จ ลองใหม่อีกครั้ง");
+  }finally{
+    host.remove(); btn.disabled=false; btn.textContent="ดาวน์โหลดรายงาน PDF";
+  }
+};
+
+if(!loadState()) rows=parseText(SAMPLE);
+renderTable(); compute();
+</script>
+</body>
+</html>
